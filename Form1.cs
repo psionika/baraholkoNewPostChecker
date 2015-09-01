@@ -14,6 +14,7 @@ using System.IO;
 using System.Globalization;
 using System.Xml.Linq;
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 
 namespace baraholkoNewPostChecker
 {
@@ -60,7 +61,8 @@ namespace baraholkoNewPostChecker
 
                         rf.CategoryTitle = (item.Title != null) ? item.Title.Text : String.Empty;
 
-                        rf.Link = item.Links[0].Uri.ToString();
+                        if (item.Links.Count != 0)
+                            rf.Link = item.Links[0].Uri.ToString();
 
                         if (item.Categories.Count != 0)
                             rf.Category = item.Categories[0].Name;
@@ -96,15 +98,31 @@ namespace baraholkoNewPostChecker
         void button1_Click(object sender, EventArgs e)
         {
             getBaraholkoRSS();
-            
+
             PostLastDT = DateTime.Parse(dataGridView1.Rows[0].Cells[4].Value.ToString());
+           
+            label1.Text = PostLastDT.ToString();
+        }        
 
-            label1.Text = PostLastDT.ToString();            
-        }
-
-        private void Form1_Load(object sender, EventArgs e)
+        void Form1_Load(object sender, EventArgs e)
         {
             PostLastDT = DateTime.Now;
+        }
+
+        void button2_Click(object sender, EventArgs e)
+        {
+            getBaraholkoRSS();
+
+            if(PostLastDT != DateTime.Parse(dataGridView1.Rows[0].Cells[4].Value.ToString()))
+            {
+                MessageBox.Show("Есть новые сообщения!");
+                notifyIcon1.ShowBalloonTip(10000, "Baraholko", "На форуме есть новое сообщение - " + Environment.NewLine 
+                    + dataGridView1.Rows[0].Cells[0].Value.ToString() + Environment.NewLine
+                    + "Автор - " + dataGridView1.Rows[0].Cells[1].Value.ToString() 
+                    , ToolTipIcon.Info);
+                PostLastDT = DateTime.Parse(dataGridView1.Rows[0].Cells[4].Value.ToString());
+
+            }
         }
     }
 
