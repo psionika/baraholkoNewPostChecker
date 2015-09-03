@@ -1,20 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml;
 using System.ServiceModel.Syndication;
 using System.Net;
-using System.IO;
-using System.Globalization;
-using System.Xml.Linq;
 using System.Collections.ObjectModel;
-using System.Text.RegularExpressions;
+
 
 namespace baraholkoNewPostChecker
 {
@@ -25,18 +16,14 @@ namespace baraholkoNewPostChecker
             InitializeComponent();
         }
 
-        public ObservableCollection<RssFeed> RssFeedList { get; set; }        
-
+        public ObservableCollection<RssFeed> RssFeedList { get; set; }
         public class RssFeed
         {
             public string CategoryTitle { get; set; }
             public string Author { get; set; }
-            public string Category { get; set; }
-            public string Text { get; set; }
             public string Date { get; set; }
             public string Link { get; set; }
         }
-
         public DateTime PostLastDT = DateTime.Now;
 
         void getBaraholkoRSS()
@@ -57,6 +44,8 @@ namespace baraholkoNewPostChecker
                     foreach (var item in feed.Items)
                     {
                         if (item.Title.Text.ToString() == "Статистика конференции") continue;
+                        if (item.Title.Text.ToString() == "Перейти на страницу…") continue;
+
                         var rf = new RssFeed();
 
                         rf.CategoryTitle = (item.Title != null) ? item.Title.Text : String.Empty;
@@ -64,28 +53,15 @@ namespace baraholkoNewPostChecker
                         if (item.Links.Count != 0)
                             rf.Link = item.Links[0].Uri.ToString();
 
-                        if (item.Categories.Count != 0)
-                            rf.Category = item.Categories[0].Name;
-
                         rf.Date = item.PublishDate.ToString();
-
-                        StringBuilder sb = new StringBuilder();
-                        foreach (SyndicationElementExtension extension in item.ElementExtensions)
-                        {
-                            XElement ele = extension.GetObject<XElement>();
-                            if (ele.Name.LocalName == "encoded" && ele.Name.Namespace.ToString().Contains("content"))
-                            {
-                                sb.Append(ele.Value + "<br/>");
-                            }
-                        }
-
-                        rf.Text = sb.ToString();
 
                         if (item.Authors != null && item.Authors.Any())
                         {
-                            rf.Author = item.Authors.First().Email;
-                        }
+                            var s = item.Authors.First().Email;
+                            s = s.Substring(s.IndexOf('(') + 1, s.IndexOf(')') - s.IndexOf('(')-1);
 
+                            rf.Author = s;
+                        }
 
                         RssFeedList.Add(rf);
                     }
@@ -95,36 +71,99 @@ namespace baraholkoNewPostChecker
             dataGridView1.DataSource = RssFeedList;
         }
 
-        void button1_Click(object sender, EventArgs e)
-        {
-            getBaraholkoRSS();
-
-            PostLastDT = DateTime.Parse(dataGridView1.Rows[0].Cells[4].Value.ToString());
-           
-            label1.Text = PostLastDT.ToString();
-        }        
-
         void Form1_Load(object sender, EventArgs e)
         {
-            PostLastDT = DateTime.Now;
-        }
-
-        void button2_Click(object sender, EventArgs e)
-        {
             getBaraholkoRSS();
 
-            if(PostLastDT != DateTime.Parse(dataGridView1.Rows[0].Cells[4].Value.ToString()))
-            {
-                MessageBox.Show("Есть новые сообщения!");
-                notifyIcon1.ShowBalloonTip(10000, "Baraholko", "На форуме есть новое сообщение - " + Environment.NewLine 
-                    + dataGridView1.Rows[0].Cells[0].Value.ToString() + Environment.NewLine
-                    + "Автор - " + dataGridView1.Rows[0].Cells[1].Value.ToString() 
-                    , ToolTipIcon.Info);
-                PostLastDT = DateTime.Parse(dataGridView1.Rows[0].Cells[4].Value.ToString());
+            PostLastDT = DateTime.Parse(dataGridView1.Rows[0].Cells[2].Value.ToString());
 
+            timer1.Start();
+        }
+
+        void notifyIcon1_BalloonTipClicked(object sender, EventArgs e)
+        {
+            if(!string.IsNullOrEmpty(dataGridView1.Rows[0].Cells[3].Value.ToString()))
+            {
+                System.Diagnostics.Process.Start(dataGridView1.Rows[0].Cells[3].Value.ToString());
+            }
+        }
+
+        void timer1_Tick(object sender, EventArgs e)
+        {
+            try
+            {
+                getBaraholkoRSS();
+
+                if (PostLastDT != DateTime.Parse(dataGridView1.Rows[0].Cells[2].Value.ToString()))
+                {
+
+                    notifyIcon1.ShowBalloonTip(15000, "Baraholko", "На форуме есть новое сообщение - " + Environment.NewLine
+                        + dataGridView1.Rows[0].Cells[0].Value.ToString() + Environment.NewLine
+                        + "Автор - " + dataGridView1.Rows[0].Cells[1].Value.ToString()
+                        , ToolTipIcon.Info);
+
+                    PostLastDT = DateTime.Parse(dataGridView1.Rows[0].Cells[2].Value.ToString());
+                }
+            }
+            catch (Exception ex)
+            {
+                notifyIcon1.ShowBalloonTip(5000, "Ошибка", ex.Message, ToolTipIcon.Error);
+            }
+        }
+
+        void перейтиКПоследнемуПостуToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(dataGridView1.Rows[0].Cells[3].Value.ToString()))
+            {
+                System.Diagnostics.Process.Start(dataGridView1.Rows[0].Cells[3].Value.ToString());
+            }
+        }
+
+        void перейтиНаГлавнуюToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            System.Diagnostics.Process.Start("http://baraholko.ru/index.php");
+        }
+
+        void notifyIcon1_DoubleClick(object sender, EventArgs e)
+        {
+            if (this.WindowState == FormWindowState.Minimized)
+            {
+                this.WindowState = FormWindowState.Normal;
+                this.ShowInTaskbar = true;
+            }
+        }
+
+        void Form1_Deactivate(object sender, EventArgs e)
+        {
+            if (this.WindowState == FormWindowState.Minimized)
+            {
+                this.ShowInTaskbar = false;
+                notifyIcon1.Visible = true;
+            }
+        }
+
+        void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            e.Cancel = true;
+            this.WindowState = FormWindowState.Minimized;
+            this.ShowInTaskbar = false;
+            notifyIcon1.Visible = true;
+        }
+
+        void выходToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Application.Exit();
+        }
+
+        private void dataGridView1_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            //проверяем что не заголовок
+            if (e.RowIndex != -1)
+            {
+                var s = dataGridView1.CurrentRow.Cells[3].Value.ToString();
+
+                System.Diagnostics.Process.Start(s);
             }
         }
     }
-
- 
 }
