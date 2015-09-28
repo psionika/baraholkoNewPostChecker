@@ -6,7 +6,6 @@ using System.ServiceModel.Syndication;
 using System.Net;
 using System.Collections.ObjectModel;
 
-
 namespace baraholkoNewPostChecker
 {
     public partial class Form1 : Form
@@ -32,6 +31,8 @@ namespace baraholkoNewPostChecker
 
             var request = WebRequest.Create(uri);
 
+            request.Proxy = null;
+
             using (WebResponse response = request.GetResponse())
             using (XmlReader reader = XmlReader.Create(response.GetResponseStream()))
             {
@@ -48,7 +49,7 @@ namespace baraholkoNewPostChecker
 
                         var rf = new RssFeed();
 
-                        rf.CategoryTitle = (item.Title != null) ? item.Title.Text : String.Empty;
+                        rf.CategoryTitle = (item.Title != null) ? item.Title.Text : string.Empty;
 
                         if (item.Links.Count != 0)
                             rf.Link = item.Links[0].Uri.ToString();
@@ -126,38 +127,53 @@ namespace baraholkoNewPostChecker
 
         void notifyIcon1_DoubleClick(object sender, EventArgs e)
         {
-            if (this.WindowState == FormWindowState.Minimized)
+            if (WindowState == FormWindowState.Minimized)
             {
-                this.WindowState = FormWindowState.Normal;
-                this.ShowInTaskbar = true;
+                WindowState = FormWindowState.Normal;
+                ShowInTaskbar = true;
             }
         }
 
         void Form1_Deactivate(object sender, EventArgs e)
         {
-            if (this.WindowState == FormWindowState.Minimized)
+            if (WindowState == FormWindowState.Minimized)
             {
-                this.ShowInTaskbar = false;
+                ShowInTaskbar = false;
                 notifyIcon1.Visible = true;
             }
         }
 
+        static int WM_QUERYENDSESSION = 0x11;
+        static bool systemShutdown;
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_QUERYENDSESSION)
+            {
+                systemShutdown = true;
+            }
+
+            base.WndProc(ref m);
+        }
+
+
         void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
+            if (systemShutdown) Environment.Exit(0);
+
             e.Cancel = true;
-            this.WindowState = FormWindowState.Minimized;
-            this.ShowInTaskbar = false;
+            WindowState = FormWindowState.Minimized;
+            ShowInTaskbar = false;
             notifyIcon1.Visible = true;
         }
 
         void выходToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Application.Exit();
+            Environment.Exit(0);
         }
 
-        private void dataGridView1_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        void dataGridView1_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
         {
-            //проверяем что не заголовок
             if (e.RowIndex != -1)
             {
                 var s = dataGridView1.CurrentRow.Cells[3].Value.ToString();
